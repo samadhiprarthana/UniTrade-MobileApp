@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -8,47 +9,75 @@ export default function RegisterScreen({ navigation }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const validateForm = () => {
+    console.log('=== Registration Validation ===');
+    console.log('Name:', name);
+    console.log('Email:', email);
+    console.log('Phone:', phone);
+    console.log('Password length:', password.length);
+    console.log('Confirm Password length:', confirmPassword.length);
+
+    // Clear previous error
+    setErrorMessage('');
+
     if (!name.trim()) {
-      Alert.alert('Error', 'Please enter your name');
+      console.log('❌ Validation failed: Name is empty');
+      setErrorMessage('Please enter your name');
       return false;
     }
     if (!email.trim() || !email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email');
+      console.log('❌ Validation failed: Invalid email');
+      setErrorMessage('Please enter a valid email address');
       return false;
     }
     if (!phone.trim() || phone.length < 10) {
-      Alert.alert('Error', 'Please enter a valid phone number');
+      console.log('❌ Validation failed: Invalid phone number');
+      setErrorMessage('Please enter a valid phone number (min 10 digits)');
       return false;
     }
     if (!password.trim() || password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
+      console.log('❌ Validation failed: Password too short');
+      setErrorMessage('Password must be at least 6 characters');
+      return false;
+    }
+    if (!confirmPassword.trim()) {
+      console.log('❌ Validation failed: Confirm password is empty');
+      setErrorMessage('Please confirm your password');
       return false;
     }
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      console.log('❌ Validation failed: Passwords do not match');
+      setErrorMessage('Passwords do not match');
       return false;
     }
+
+    console.log('✓ Validation passed');
     return true;
   };
 
   const handleRegister = async () => {
+    console.log('=== Registration Attempt ===');
+    
     if (!validateForm()) return;
 
     try {
-      // Get existing users
+      console.log('Fetching existing users from AsyncStorage...');
       const usersData = await AsyncStorage.getItem('@users');
       const users = usersData ? JSON.parse(usersData) : [];
+      console.log('Existing users count:', users.length);
 
-      // Check if email already exists
       const existingUser = users.find(u => u.email === email);
       if (existingUser) {
-        Alert.alert('Error', 'Email already registered');
+        console.log('❌ Registration failed: Email already exists');
+        setErrorMessage('This email is already registered. Please login or use a different email.');
         return;
       }
 
-      // Create new user
       const newUser = {
         id: Date.now().toString(),
         name,
@@ -58,152 +87,351 @@ export default function RegisterScreen({ navigation }) {
         createdAt: new Date().toISOString(),
       };
 
-      // Save user
+      console.log('✓ Creating new user:', newUser);
       users.push(newUser);
+      
       await AsyncStorage.setItem('@users', JSON.stringify(users));
-       onsole.log('✅ User saved successfully');
+      console.log('✓ User saved to AsyncStorage successfully');
+      console.log('✓ Account created for:', email);
+      
+      // Clear form
+      setName('');
+      setEmail('');
+      setPhone('');
+      setPassword('');
+      setConfirmPassword('');
+      setErrorMessage('');
+      
+      // Show success modal
+      setShowSuccessModal(true);
 
-       Alert.alert('Success', 'Registration successful! Please login.', [
-      {
-        text: 'OK',
-        onPress: () => {
-          console.log('➡️ Navigating to Login');
-          navigation.replace('Login');
-        }
-      }
-    ]);
+      // Auto-navigate after 2 seconds
+      setTimeout(() => {
+        console.log('→ Navigating to Login screen...');
+        setShowSuccessModal(false);
+        navigation.navigate('Login');
+      }, 2000);
+
     } catch (error) {
-    console.log('❌ Registration error:', error);
-    Alert.alert('Error', 'Registration failed. Please try again.');
+      console.error('Registration error:', error);
+      setErrorMessage('Registration failed. Please try again.');
     }
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.container}>
+      {/* Header with Orange/Blue curves */}
       <View style={styles.header}>
-        <Text style={styles.title}>Create Account</Text>
-        <Text style={styles.subtitle}>Join UniTrade Community</Text>
+        <View style={styles.orangeCurve} />
+        <View style={styles.blueCurve} />
+        <Text style={styles.welcomeText}>Create Account</Text>
       </View>
 
-      <View style={styles.form}>
-        <Text style={styles.label}>Full Name *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your full name"
-          value={name}
-          onChangeText={setName}
-        />
+      {/* Form Card */}
+      <ScrollView style={styles.formCard} showsVerticalScrollIndicator={false}>
+        <Text style={styles.formTitle}>Join UniTrade community</Text>
 
-        <Text style={styles.label}>Email *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
+        {/* Error Message Display */}
+        {errorMessage ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={20} color="#dc3545" />
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          </View>
+        ) : null}
 
-        <Text style={styles.label}>Phone Number *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your phone number"
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
-        />
+        {/* Name Input */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="person-outline" size={20} color="#FF6B35" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Full Name"
+            placeholderTextColor="#999"
+            value={name}
+            onChangeText={(text) => {
+              setName(text);
+              setErrorMessage(''); // Clear error when typing
+            }}
+          />
+        </View>
 
-        <Text style={styles.label}>Password *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Create a password (min 6 characters)"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-        />
+        {/* Email Input */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="mail-outline" size={20} color="#FF6B35" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#999"
+            value={email}
+            onChangeText={(text) => {
+              setEmail(text);
+              setErrorMessage('');
+            }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
 
-        <Text style={styles.label}>Confirm Password *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Re-enter your password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry
-        />
+        {/* Phone Input */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="call-outline" size={20} color="#FF6B35" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Phone Number"
+            placeholderTextColor="#999"
+            value={phone}
+            onChangeText={(text) => {
+              setPhone(text);
+              setErrorMessage('');
+            }}
+            keyboardType="phone-pad"
+          />
+        </View>
 
+        {/* Password Input */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed-outline" size={20} color="#FF6B35" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Password (min 6 characters)"
+            placeholderTextColor="#999"
+            value={password}
+            onChangeText={(text) => {
+              setPassword(text);
+              setErrorMessage('');
+            }}
+            secureTextEntry={!showPassword}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+            <Ionicons 
+              name={showPassword ? "eye-outline" : "eye-off-outline"} 
+              size={20} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Confirm Password Input */}
+        <View style={styles.inputContainer}>
+          <Ionicons name="lock-closed-outline" size={20} color="#FF6B35" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Confirm Password"
+            placeholderTextColor="#999"
+            value={confirmPassword}
+            onChangeText={(text) => {
+              setConfirmPassword(text);
+              setErrorMessage('');
+            }}
+            secureTextEntry={!showConfirmPassword}
+          />
+          <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+            <Ionicons 
+              name={showConfirmPassword ? "eye-outline" : "eye-off-outline"} 
+              size={20} 
+              color="#666" 
+            />
+          </TouchableOpacity>
+        </View>
+
+        {/* Register Button */}
         <TouchableOpacity style={styles.registerButton} onPress={handleRegister}>
-          <Text style={styles.registerButtonText}>Register</Text>
+          <Text style={styles.registerButtonText}>Sign Up</Text>
+          <View style={styles.arrowCircle}>
+            <Ionicons name="arrow-forward" size={20} color="#fff" />
+          </View>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.linkText}>
-            Already have an account? <Text style={styles.linkBold}>Login</Text>
+        {/* Login Link */}
+        <TouchableOpacity 
+          style={styles.loginContainer}
+          onPress={() => {
+            console.log('Navigating to Login screen...');
+            navigation.navigate('Login');
+          }}
+        >
+          <Text style={styles.loginLink}>
+            Already have an account? <Text style={styles.loginLinkBold}>Login</Text>
           </Text>
         </TouchableOpacity>
-      </View>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Success Modal */}
+      <Modal
+        transparent={true}
+        visible={showSuccessModal}
+        animationType="fade"
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIcon}>
+              <Ionicons name="checkmark-circle" size={80} color="#28a745" />
+            </View>
+            <Text style={styles.successTitle}>Account Created!</Text>
+            <Text style={styles.successMessage}>
+              Registration successful.{'\n'}
+              Redirecting to login...
+            </Text>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFF5F0',
   },
   header: {
-    backgroundColor: '#28a745',
-    padding: 40,
+    height: '32%',
+    position: 'relative',
+    overflow: 'hidden',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  title: {
-    fontSize: 32,
+  orangeCurve: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '100%',
+    backgroundColor: '#FF8C61',
+    borderBottomLeftRadius: 200,
+    borderBottomRightRadius: 200,
+    transform: [{ scaleX: 2.5 }],
+  },
+  blueCurve: {
+    position: 'absolute',
+    top: 40,
+    left: -80,
+    width: 220,
+    height: 220,
+    backgroundColor: '#4A6FA5',
+    borderRadius: 110,
+  },
+  welcomeText: {
+    fontSize: 36,
     fontWeight: 'bold',
     color: '#fff',
-    marginBottom: 5,
+    zIndex: 10,
+    marginTop: 40,
   },
-  subtitle: {
-    fontSize: 16,
-    color: '#d4edda',
+  formCard: {
+    flex: 1,
+    backgroundColor: '#fff',
+    marginTop: -50,
+    borderTopLeftRadius: 40,
+    borderTopRightRadius: 40,
+    padding: 30,
+    paddingTop: 40,
   },
-  form: {
-    padding: 20,
+  formTitle: {
+    fontSize: 18,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
   },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginTop: 10,
-    marginBottom: 8,
-    color: '#333',
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffe6e6',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 15,
+    borderLeftWidth: 4,
+    borderLeftColor: '#dc3545',
+  },
+  errorText: {
+    color: '#dc3545',
+    fontSize: 14,
+    marginLeft: 8,
+    flex: 1,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F0',
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    marginBottom: 14,
+    height: 55,
+    borderWidth: 1,
+    borderColor: '#FFE5D9',
+  },
+  icon: {
+    marginRight: 10,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
+    flex: 1,
     fontSize: 16,
-    marginBottom: 15,
-    backgroundColor: '#f9f9f9',
+    color: '#333',
   },
   registerButton: {
-    backgroundColor: '#28a745',
-    padding: 15,
-    borderRadius: 8,
+    backgroundColor: '#4A6FA5',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingHorizontal: 25,
+    borderRadius: 15,
+    marginTop: 10,
+    marginBottom: 20,
   },
   registerButtonText: {
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
   },
-  linkText: {
-    textAlign: 'center',
-    marginTop: 20,
-    fontSize: 16,
+  arrowCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#5B7FA8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loginContainer: {
+    marginTop: 10,
+    marginBottom: 30,
+    alignItems: 'center',
+  },
+  loginLink: {
+    fontSize: 15,
     color: '#666',
   },
-  linkBold: {
-    color: '#28a745',
+  loginLinkBold: {
+    color: '#FF6B35',
     fontWeight: 'bold',
+  },
+  // Success Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 40,
+    alignItems: 'center',
+    width: '80%',
+    maxWidth: 400,
+  },
+  successIcon: {
+    marginBottom: 20,
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
