@@ -32,7 +32,7 @@ export default function LoginScreen({ navigation }) {
         await AsyncStorage.setItem('@currentUser', JSON.stringify(user));
         console.log('User saved to @currentUser');
         Alert.alert('Success', `Welcome back, ${user.name}!`);
-        navigation.replace('Home');
+        navigation.replace('MainTabs');
       } else {
         console.log('Login failed: Invalid credentials');
         Alert.alert('Error', 'Invalid email or password');
